@@ -258,9 +258,11 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
     func endNavigation(result: FlutterResult?)
     {
         sendEvent(eventType: MapBoxEventType.navigation_finished)
+        
         if(self._navigationViewController != nil)
         {
             self._navigationViewController?.navigationService.endNavigation(feedback: nil)
+            self._navigationViewController?.navigationService.router.finishRouting()
             if(isEmbeddedNavigation)
             {
                 self._navigationViewController?.view.removeFromSuperview()

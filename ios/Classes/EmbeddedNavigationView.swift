@@ -190,7 +190,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             locations.append(location)
         }
 
-        if(!_isOptimized)
+        if(!_isOptimized)   
         {
             //waypoints must be in the right order
             locations.sort(by: {$0.order ?? 0 < $1.order ?? 0})
@@ -227,7 +227,35 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             mode = .walking
         }
 
-        let routeOptions = NavigationRouteOptions(waypoints: _wayPoints, profileIdentifier: mode)
+        let maxCoordinatesPerRequest = 25
+        let chunkSize = maxCoordinatesPerRequest - 1 // Subtract 1 for the destination waypoint
+        let waypointChunks = locations.chunked(into: chunkSize)
+        
+        var combinedRoutes: [Route] = []
+        let dispatchGroup = DispatchGroup()
+        
+        for (index, waypointChunk) in waypointChunks.enumerated() {
+            dispatchGroup.enter()
+            
+            var chunkWaypoints: [Waypoint] = []
+            for loc in waypointChunk {
+                let location = Waypoint(coordinate: CLLocationCoordinate2D(latitude: loc.latitude!, longitude: loc.longitude!),
+                                        coordinateAccuracy: -1, name: loc.name)
+                location.separatesLegs = !loc.isSilent
+                chunkWaypoints.append(location)
+            }
+            
+            if index < waypointChunks.count - 1 {
+                // Add the first waypoint of the next chunk as the destination waypoint
+                let nextChunk = waypointChunks[index + 1]
+                let destinationLoc = nextChunk[0]
+                let destinationWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: destinationLoc.latitude!, longitude: destinationLoc.longitude!),
+                                                coordinateAccuracy: -1, name: destinationLoc.name)
+                destinationWaypoint.separatesLegs = !destinationLoc.isSilent
+                chunkWaypoints.append(destinationWaypoint)
+            }
+        
+        let routeOptions = NavigationRouteOptions(waypoints: chunkWaypoints, profileIdentifier: mode)
 
         if (_allowsUTurnAtWayPoints != nil)
         {
@@ -240,26 +268,63 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         self.routeOptions = routeOptions
 
         // Generate the route object and draw it on the map
-      _ = Directions.shared.calculate(routeOptions) { [weak self] (session, result) in
-            guard case let .success(response) = result, let strongSelf = self else {
-                flutterResult(false)
-                
-                if case let .failure(error) = result {
-                    self?.sendEvent(eventType: MapBoxEventType.route_build_failed, data: error.localizedDescription)
-                } else {
-                    self?.sendEvent(eventType: MapBoxEventType.route_build_failed)
-                }
-                
-                return
+      _ = Directions.shared.calculate(routeOptions) { (session, result) in
+            defer {
+                dispatchGroup.leave()
             }
             
-            strongSelf.routeResponse = response
-            strongSelf.sendEvent(eventType: MapBoxEventType.route_built, data: strongSelf.encodeRouteResponse(response: response))
-            strongSelf.navigationMapView?.showcase(response.routes!, routesPresentationStyle: .all(shouldFit: true), animated: true)
-            flutterResult(true)
+            switch result {
+            case .success(let response):
+                combinedRoutes.append(contentsOf: response.routes!)
+            case .failure(let error):
+                self.sendEvent(eventType: MapBoxEventType.route_build_failed, data: error.localizedDescription)
+                flutterResult(false)
+            }
+        }
+    }
+
+        dispatchGroup.notify(queue: .main) {
+            if !combinedRoutes.isEmpty {
+                // Stitch the routes together
+                let stitchedRoute = self.stitchRoutes(routes: combinedRoutes)
+                self.routeResponse = RouteResponse(httpResponse: nil, routes: [stitchedRoute], waypoints: locations, options: nil)
+                self.sendEvent(eventType: MapBoxEventType.route_built, data: self.encodeRouteResponse(response: self.routeResponse!))
+                self.navigationMapView?.showcase([stitchedRoute], routesPresentationStyle: .all(shouldFit: true), animated: true)
+                flutterResult(true)
+            } else {
+                flutterResult(false)
+            }
         }
       
     }
+
+
+private func stitchRoutes(routes: [Route]) -> Route {
+    var stitchedLegs: [RouteLeg] = []
+    var stitchedSteps: [RouteStep] = []
+    var stitchedCoordinates: [CLLocationCoordinate2D] = []
+    
+    for route in routes {
+        if let legs = route.legs {
+            stitchedLegs.append(contentsOf: legs)
+            
+            for leg in legs {
+                if let steps = leg.steps {
+                    stitchedSteps.append(contentsOf: steps)
+                    
+                    for step in steps {
+                        if let coordinates = step.coordinates {
+                            stitchedCoordinates.append(contentsOf: coordinates)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    let stitchedRoute = Route(legs: stitchedLegs, shape: LineString(stitchedCoordinates))
+    return stitchedRoute
+}
 
     func startEmbeddedFreeDrive(arguments: NSDictionary?, result: @escaping FlutterResult) {
 
@@ -398,6 +463,14 @@ extension FlutterMapboxNavigationView : NavigationServiceDelegate {
             {
                 _eventSink = nil
             }
+        }
+    }
+}
+
+extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        return stride(from: 0, to: count, by: size).map {
+            Array(self[$0 ..< Swift.min($0 + size, count)])
         }
     }
 }

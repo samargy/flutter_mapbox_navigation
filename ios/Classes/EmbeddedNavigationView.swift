@@ -284,36 +284,42 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
     }
 
         dispatchGroup.notify(queue: .main) {
-            if !combinedRoutes.isEmpty {
-                // Stitch the routes together
-                let stitchedRoute = self.stitchRoutes(routes: combinedRoutes)
-                self.routeResponse = RouteResponse(httpResponse: nil, routes: [stitchedRoute], waypoints: locations, options: nil)
-                self.sendEvent(eventType: MapBoxEventType.route_built, data: self.encodeRouteResponse(response: self.routeResponse!))
-                self.navigationMapView?.showcase([stitchedRoute], routesPresentationStyle: .all(shouldFit: true), animated: true)
-                flutterResult(true)
-            } else {
-                flutterResult(false)
-            }
+        if !combinedRoutes.isEmpty {
+            // Stitch the routes together
+            let stitchedRoute = self.stitchRoutes(routes: combinedRoutes)
+            self.routeResponse = RouteResponse(httpResponse: nil, routes: [stitchedRoute], waypoints: locations, options: self.routeOptions)
+            self.sendEvent(eventType: MapBoxEventType.route_built, data: self.encodeRouteResponse(response: self.routeResponse!))
+            self.navigationMapView?.showcase([stitchedRoute], routesPresentationStyle: .all(shouldFit: true), animated: true)
+            flutterResult(true)
+        } else {
+            flutterResult(false)
         }
+    }
       
     }
+
 
 
 private func stitchRoutes(routes: [Route]) -> Route {
     var stitchedLegs: [RouteLeg] = []
     var stitchedSteps: [RouteStep] = []
     var stitchedCoordinates: [CLLocationCoordinate2D] = []
+    var stitchedDistance: CLLocationDistance = 0
+    var stitchedExpectedTravelTime: TimeInterval = 0
     
     for route in routes {
         if let legs = route.legs {
             stitchedLegs.append(contentsOf: legs)
             
             for leg in legs {
+                stitchedDistance += leg.distance
+                stitchedExpectedTravelTime += leg.expectedTravelTime
+                
                 if let steps = leg.steps {
                     stitchedSteps.append(contentsOf: steps)
                     
                     for step in steps {
-                        if let coordinates = step.coordinates {
+                        if let coordinates = step.coordinatePoints {
                             stitchedCoordinates.append(contentsOf: coordinates)
                         }
                     }
@@ -322,7 +328,7 @@ private func stitchRoutes(routes: [Route]) -> Route {
         }
     }
     
-    let stitchedRoute = Route(legs: stitchedLegs, shape: LineString(stitchedCoordinates))
+    let stitchedRoute = Route(legs: stitchedLegs, shape: LineString(stitchedCoordinates), distance: stitchedDistance, expectedTravelTime: stitchedExpectedTravelTime)
     return stitchedRoute
 }
 

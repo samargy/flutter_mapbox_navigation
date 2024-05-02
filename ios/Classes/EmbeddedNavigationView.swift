@@ -239,23 +239,22 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         routeOptions.includesAlternativeRoutes = _alternatives
         self.routeOptions = routeOptions
 
-      
         // Generate the route object and draw it on the map
       _ = Directions.shared.calculate(routeOptions) { [weak self] (session, result) in
             guard case let .success(response) = result, let strongSelf = self else {
                 flutterResult(false)
                 
                 if case let .failure(error) = result {
-                let currentCredentials = Directions.shared.credentials
-                let errorMessage = """
-                    \(error.localizedDescription)
-                    Credentials:
-                    - Access Token: \(currentCredentials.accessToken ?? "None")
-                    - Host: \(currentCredentials.host)
-                    - SKU Token: \(currentCredentials.skuToken ?? "None")
-                """
+                    let currentCredentials = Directions.shared.credentials
+                    let errorMessage = """
+                        \(error.localizedDescription)
+                        Credentials:
+                        - Access Token: \(currentCredentials.accessToken ?? "None")
+                        - Host: \(currentCredentials.host)
+                        - SKU Token: \(currentCredentials.skuToken ?? "None")
+                        """
                     self?.sendEvent(eventType: MapBoxEventType.route_build_failed, data: errorMessage)
-           } else {
+                } else {
                     self?.sendEvent(eventType: MapBoxEventType.route_build_failed)
                 }
                 

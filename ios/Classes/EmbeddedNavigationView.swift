@@ -228,32 +228,32 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         }
 
         let maxCoordinatesPerRequest = 25
-        let chunkSize = maxCoordinatesPerRequest - 1 // Subtract 1 for the destination waypoint
-        let waypointChunks = locations.chunked(into: chunkSize)
+    let chunkSize = maxCoordinatesPerRequest - 1 // Subtract 1 for the destination waypoint
+    let waypointChunks = locations.chunked(into: chunkSize)
+    
+    var combinedRoutes: [Route] = []
+    let dispatchGroup = DispatchGroup()
+    
+    for (index, waypointChunk) in waypointChunks.enumerated() {
+        dispatchGroup.enter()
         
-        var combinedRoutes: [Route] = []
-        let dispatchGroup = DispatchGroup()
+        var chunkWaypoints: [Waypoint] = []
+        for loc in waypointChunk {
+            let location = Waypoint(coordinate: CLLocationCoordinate2D(latitude: loc.latitude!, longitude: loc.longitude!),
+                                    coordinateAccuracy: -1, name: loc.name)
+            location.separatesLegs = !loc.isSilent
+            chunkWaypoints.append(location)
+        }
         
-        for (index, waypointChunk) in waypointChunks.enumerated() {
-            dispatchGroup.enter()
-            
-            var chunkWaypoints: [Waypoint] = []
-            for loc in waypointChunk {
-                let location = Waypoint(coordinate: CLLocationCoordinate2D(latitude: loc.latitude!, longitude: loc.longitude!),
-                                        coordinateAccuracy: -1, name: loc.name)
-                location.separatesLegs = !loc.isSilent
-                chunkWaypoints.append(location)
-            }
-            
-            if index < waypointChunks.count - 1 {
-                // Add the first waypoint of the next chunk as the destination waypoint
-                let nextChunk = waypointChunks[index + 1]
-                let destinationLoc = nextChunk[0]
-                let destinationWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: destinationLoc.latitude!, longitude: destinationLoc.longitude!),
-                                                coordinateAccuracy: -1, name: destinationLoc.name)
-                destinationWaypoint.separatesLegs = !destinationLoc.isSilent
-                chunkWaypoints.append(destinationWaypoint)
-            }
+        if index < waypointChunks.count - 1 {
+            // Add the first waypoint of the next chunk as the destination waypoint
+            let nextChunk = waypointChunks[index + 1]
+            let destinationLoc = nextChunk[0]
+            let destinationWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: destinationLoc.latitude!, longitude: destinationLoc.longitude!),
+                                               coordinateAccuracy: -1, name: destinationLoc.name)
+            destinationWaypoint.separatesLegs = !destinationLoc.isSilent
+            chunkWaypoints.append(destinationWaypoint)
+        }
         
         let routeOptions = NavigationRouteOptions(waypoints: chunkWaypoints, profileIdentifier: mode)
 
@@ -268,7 +268,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         self.routeOptions = routeOptions
 
         // Generate the route object and draw it on the map
-      _ = Directions.shared.calculate(routeOptions) { (session, result) in
+     _ = Directions.shared.calculate(routeOptions) { (session, result) in
             defer {
                 dispatchGroup.leave()
             }
@@ -300,37 +300,39 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
 
 
 
-private func stitchRoutes(routes: [Route]) -> Route {
-    var stitchedLegs: [RouteLeg] = []
-    var stitchedSteps: [RouteStep] = []
-    var stitchedCoordinates: [CLLocationCoordinate2D] = []
-    var stitchedDistance: CLLocationDistance = 0
-    var stitchedExpectedTravelTime: TimeInterval = 0
-    
-    for route in routes {
-        if let legs = route.legs {
-            stitchedLegs.append(contentsOf: legs)
+    private func stitchRoutes(routes: [Route]) -> Route {
+        var stitchedLegs: [RouteLeg] = []
+        var stitchedShape: LineString?
+        var stitchedDistance: Turf.LocationDistance = 0
+        var stitchedExpectedTravelTime: TimeInterval = 0
+        var stitchedTypicalTravelTime: TimeInterval = 0
+        
+        for route in routes {
+            if let legs = route.legs {
+                stitchedLegs.append(contentsOf: legs)
+            }
             
-            for leg in legs {
-                stitchedDistance += leg.distance
-                stitchedExpectedTravelTime += leg.expectedTravelTime
-                
-                if let steps = leg.steps {
-                    stitchedSteps.append(contentsOf: steps)
-                    
-                    for step in steps {
-                        if let coordinates = step.coordinatePoints {
-                            stitchedCoordinates.append(contentsOf: coordinates)
-                        }
-                    }
+            if let shape = route.shape {
+                if stitchedShape == nil {
+                    stitchedShape = shape
+                } else {
+                    stitchedShape?.coordinates.append(contentsOf: shape.coordinates)
                 }
             }
+            
+            stitchedDistance += route.distance
+            stitchedExpectedTravelTime += route.expectedTravelTime
+            stitchedTypicalTravelTime += route.typicalTravelTime ?? 0
         }
+        
+        let stitchedRoute = Route(legs: stitchedLegs,
+                                shape: stitchedShape,
+                                distance: stitchedDistance,
+                                expectedTravelTime: stitchedExpectedTravelTime,
+                                typicalTravelTime: stitchedTypicalTravelTime)
+        
+        return stitchedRoute
     }
-    
-    let stitchedRoute = Route(legs: stitchedLegs, shape: LineString(stitchedCoordinates), distance: stitchedDistance, expectedTravelTime: stitchedExpectedTravelTime)
-    return stitchedRoute
-}
 
     func startEmbeddedFreeDrive(arguments: NSDictionary?, result: @escaping FlutterResult) {
 

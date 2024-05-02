@@ -246,7 +246,6 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                 flutterResult(false)
                 
                 if case let .failure(error) = result {
-                if case let .failure(error) = result {
                 let currentCredentials = Directions.shared.credentials
                 let errorMessage = """
                     \(error.localizedDescription)

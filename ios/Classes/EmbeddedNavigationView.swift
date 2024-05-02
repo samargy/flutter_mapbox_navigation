@@ -245,7 +245,7 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                 flutterResult(false)
                 
                 if case let .failure(error) = result {
-                    self?.sendEvent(eventType: MapBoxEventType.route_build_failed, data: ["error": error.localizedDescription])
+                    self?.sendEvent(eventType: MapBoxEventType.route_build_failed, data: error.localizedDescription)
                 } else {
                     self?.sendEvent(eventType: MapBoxEventType.route_build_failed)
                 }

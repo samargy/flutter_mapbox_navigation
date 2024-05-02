@@ -240,18 +240,25 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
         self.routeOptions = routeOptions
 
         // Generate the route object and draw it on the map
-        _ = Directions.shared.calculate(routeOptions) { [weak self] (session, result) in
-
+      _ = Directions.shared.calculate(routeOptions) { [weak self] (session, result) in
             guard case let .success(response) = result, let strongSelf = self else {
                 flutterResult(false)
-                self?.sendEvent(eventType: MapBoxEventType.route_build_failed)
+                
+                if case let .failure(error) = result {
+                    self?.sendEvent(eventType: MapBoxEventType.route_build_failed, data: ["error": error.localizedDescription])
+                } else {
+                    self?.sendEvent(eventType: MapBoxEventType.route_build_failed)
+                }
+                
                 return
             }
+            
             strongSelf.routeResponse = response
             strongSelf.sendEvent(eventType: MapBoxEventType.route_built, data: strongSelf.encodeRouteResponse(response: response))
             strongSelf.navigationMapView?.showcase(response.routes!, routesPresentationStyle: .all(shouldFit: true), animated: true)
             flutterResult(true)
         }
+      
     }
 
     func startEmbeddedFreeDrive(arguments: NSDictionary?, result: @escaping FlutterResult) {

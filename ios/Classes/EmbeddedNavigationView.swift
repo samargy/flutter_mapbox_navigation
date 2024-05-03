@@ -227,6 +227,8 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
             mode = .walking
         }
 
+        mode = .automobileAvoidingTraffic
+
         let routeOptions = NavigationRouteOptions(waypoints: _wayPoints, profileIdentifier: mode)
 
         if (_allowsUTurnAtWayPoints != nil)
@@ -253,6 +255,10 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                         - Host: \(currentCredentials.host)
                         - SKU Token: \(currentCredentials.skuToken ?? "None")
                         """
+
+                    //add in profile identifier
+                    errorMessage.append("\nProfile Identifier: \(mode)")
+
                     self?.sendEvent(eventType: MapBoxEventType.route_build_failed, data: errorMessage)
                 } else {
                     self?.sendEvent(eventType: MapBoxEventType.route_build_failed)

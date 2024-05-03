@@ -254,10 +254,8 @@ public class FlutterMapboxNavigationView : NavigationFactory, FlutterPlatformVie
                         - Access Token: \(currentCredentials.accessToken ?? "None")
                         - Host: \(currentCredentials.host)
                         - SKU Token: \(currentCredentials.skuToken ?? "None")
+                        - Profile: \(mode)
                         """
-
-                    //add in profile identifier
-                    errorMessage.append("\nProfile Identifier: \(mode)")
 
                     self?.sendEvent(eventType: MapBoxEventType.route_build_failed, data: errorMessage)
                 } else {

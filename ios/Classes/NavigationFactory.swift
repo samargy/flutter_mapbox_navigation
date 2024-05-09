@@ -193,18 +193,6 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
     func setNavigationOptions(wayPoints: [Waypoint]) {
         var mode: ProfileIdentifier = .automobileAvoidingTraffic
         
-        if (_navigationMode == "cycling")
-        {
-            mode = .cycling
-        }
-        else if(_navigationMode == "driving")
-        {
-            mode = .automobile
-        }
-        else if(_navigationMode == "walking")
-        {
-            mode = .walking
-        }
         let options = NavigationRouteOptions(waypoints: wayPoints, profileIdentifier: mode)
         
         if (_allowsUTurnAtWayPoints != nil)

@@ -60,11 +60,11 @@ class MethodChannelFlutterMapboxNavigation
     MapBoxOptions options,
   ) async {
     assert(wayPoints.length > 1, 'Error: WayPoints must be at least 2');
-    if (Platform.isIOS && wayPoints.length > 3) {
-      assert(options.mode != MapBoxNavigationMode.drivingWithTraffic, '''
-            Error: Cannot use drivingWithTraffic Mode when you have more than 3 Stops
-          ''');
-    }
+    // if (Platform.isIOS && wayPoints.length > 3) {
+    //   assert(options.mode != MapBoxNavigationMode.drivingWithTraffic, '''
+    //         Error: Cannot use drivingWithTraffic Mode when you have more than 3 Stops
+    //       ''');
+    // }
 
     final pointList = _getPointListFromWayPoints(wayPoints);
     var i = 0;

@@ -128,7 +128,6 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
                 - Access Token: \(currentCredentials.accessToken ?? "None")
                 - Host: \(currentCredentials.host)
                 - SKU Token: \(currentCredentials.skuToken ?? "None")
-                - Profile: \(mode)
                 """
             
             strongSelf.sendEvent(eventType: MapBoxEventType.route_build_failed, data: errorMessage)

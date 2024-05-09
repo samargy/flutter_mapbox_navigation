@@ -121,8 +121,18 @@ public class NavigationFactory : NSObject, FlutterStreamHandler
             guard let strongSelf = self else { return }
             switch result {
             case .failure(let error):
-                strongSelf.sendEvent(eventType: MapBoxEventType.route_build_failed)
-                flutterResult("An error occured while calculating the route \(error.localizedDescription)")
+            let currentCredentials = Directions.shared.credentials
+            let errorMessage = """
+                \(error.localizedDescription)
+                Credentials:
+                - Access Token: \(currentCredentials.accessToken ?? "None")
+                - Host: \(currentCredentials.host)
+                - SKU Token: \(currentCredentials.skuToken ?? "None")
+                - Profile: \(mode)
+                """
+            
+            strongSelf.sendEvent(eventType: MapBoxEventType.route_build_failed, data: errorMessage)
+            flutterResult("An error occurred while calculating the route: \(errorMessage)")
             case .success(let response):
                 guard let routes = response.routes else { return }
                 //TODO: if more than one route found, give user option to select one: DOES NOT WORK
